@@ -120,3 +120,34 @@ class GithubDb(object):
             self.conn.commit()
         except sqlite3.IntegrityError as e:
             print("{} is a duplicate!".format(githubRepository.git_url))
+
+    def update_entry_with_git(self, github_url, gitRepository):
+        query = """UPDATE GithubProjectUnfiltered
+        SET GIT_PULL_HASH = ?,
+            GIT_PULL_DATE = ?,
+            GIT_NR_COMMITS = ?,
+            GIT_NR_COMMITTERS = ?,
+            GIT_FIRST_COMMIT_DATE = ?,
+            GIT_LAST_COMMIT_DATE = ?
+        WHERE GITHUB_URL = ?
+        """
+
+        (first_date, last_date) = get_first_last_commit_date(gitRepository.workdir)
+        git_first_commit_time = datetime.datetime.fromtimestamp(first_date)
+        git_last_commit_time = datetime.datetime.fromtimestamp(last_date)
+
+        tupel = (
+            str(gitRepository.head.target),
+            datetime.datetime.now().strftime('%Y-%m-%d'),
+            get_git_commit_count(gitRepository.workdir),
+            get_git_commiter_count(gitRepository.workdir),
+            git_first_commit_time.strftime('%Y-%m-%d'),
+            git_last_commit_time.strftime('%Y-%m-%d'),
+            github_url
+        )
+
+        try:
+            self.c.execute(query, tupel)
+            self.conn.commit()
+        except sqlite3.IntegrityError as e:
+            print("{} cannot be updated with {}!".format(github_url, gitRepository))
